@@ -1,8 +1,7 @@
 # hidrive_copy
 
-A minimal, dependency-free Python library to copy files from an **IONOS HiDrive**
-folder to the local filesystem, using the HiDrive REST API
-(`https://api.hidrive.strato.com/2.1`).
+Copy files from an **IONOS HiDrive** folder to the local filesystem, using the
+HiDrive REST API (`https://api.hidrive.strato.com/2.1`). Stdlib-only, one file.
 
 The auth token is read from a `.env` file.
 
@@ -11,51 +10,42 @@ The auth token is read from a `.env` file.
 Copy `.env.example` to `.env` and fill in your token:
 
 ```
-HIDRIVE_ACCESS_TOKEN=your_oauth2_access_token
+HIDRIVE_TOKEN=your_oauth2_access_token
 ```
 
-The token is an OAuth2 access token issued by the HiDrive OAuth2 server
-(`https://my.hidrive.com/oauth2/token`). See the HiDrive
-[Get Started](https://developer.hidrive.com/get-started/) guide for how to obtain one.
-
-Optional, for automatic refresh of short-lived access tokens:
-
-```
-HIDRIVE_CLIENT_ID=...
-HIDRIVE_CLIENT_SECRET=...
-HIDRIVE_REFRESH_TOKEN=...
-```
+It's an OAuth2 access token from the HiDrive OAuth2 server. See the
+[Get Started](https://developer.hidrive.com/get-started/) guide to obtain one.
 
 ## Usage
 
-As a CLI:
+Copy a whole folder (mirrored recursively):
 
 ```bash
-python -m hidrive_copy /users/me/photos ./local-photos
+python hidrive_copy.py /users/me/photos ./local-photos
+```
+
+Download a single file:
+
+```bash
+python hidrive_copy.py /users/me/photos/cat.jpg ./cat.jpg --file
 ```
 
 As a library:
 
 ```python
-from hidrive_copy import HiDriveClient
+import hidrive_copy
 
-client = HiDriveClient()                       # reads ./.env by default
-client.copy_folder("/users/me/photos", "./local-photos")
+token = hidrive_copy.load_token()
+hidrive_copy.copy_folder("/users/me/photos", "./local-photos", token)
+hidrive_copy.download_file("/users/me/photos/cat.jpg", "./cat.jpg", token)
 
-# or download a single file
-client.download_file("/users/me/photos/cat.jpg", "./cat.jpg")
-
-# or just list a directory
-for entry in client.list_dir("/users/me/photos"):
-    print(entry["type"], entry["name"], entry.get("size"))
+for entry in hidrive_copy.list_dir("/users/me/photos", token):
+    print(entry["type"], entry["name"])
 ```
 
 ## How it works
 
-- `GET /dir?path=...&members=all&fields=members.name,members.type,members.size`
-  lists directory contents (handles pagination and URL-encoded names).
-- `GET /file?path=...` streams the file's bytes to disk.
-- Subdirectories are mirrored recursively; symlinks are skipped (HiDrive stores
-  them but offers no safe way to materialize a symlink target).
-
-Only the Python standard library is used.
+- `GET /dir?path=...&members=all&fields=members.name,members.type` lists a
+  directory (paginated, URL-encoded names decoded).
+- `GET /file?path=...` streams the file bytes to disk.
+- Subdirectories are mirrored; symlinks are skipped.
